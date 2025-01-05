@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Management Interface</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      padding: 0;
+      background-color: #f4f4f9;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    input, button, select {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .response {
+      background: #e9ecef;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+      overflow-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Loan Management Interface</h1>
+
+    <!-- Create Loan -->
+    <form id="create-loan-form">
+      <h3>Create Loan</h3>
+      <input type="text" id="borrower" placeholder="Borrower Address" required />
+      <input type="number" id="amount" placeholder="Loan Amount (ETH)" required />
+      <select id="loan-type">
+        <option value="1">Type 1</option>
+        <option value="2">Type 2</option>
+      </select>
+      <input type="number" id="collateral-id" placeholder="Collateral Deed ID" required />
+      <button type="submit">Create Loan</button>
+    </form>
+
+    <!-- Disburse Loan -->
+    <form id="disburse-loan-form">
+      <h3>Disburse Loan</h3>
+      <input type="number" id="loan-id-disburse" placeholder="Loan ID" required />
+      <button type="submit">Disburse Loan</button>
+    </form>
+
+    <!-- Repay Loan -->
+    <form id="repay-loan-form">
+      <h3>Repay Loan</h3>
+      <input type="number" id="loan-id-repay" placeholder="Loan ID" required />
+      <input type="number" id="repayment-amount" placeholder="Repayment Amount (ETH)" required />
+      <input type="text" id="borrower-private-key" placeholder="Borrower Private Key" required />
+      <button type="submit">Repay Loan</button>
+    </form>
+
+    <!-- Check for Default -->
+    <form id="check-default-form">
+      <h3>Check for Default</h3>
+      <input type="number" id="loan-id-default" placeholder="Loan ID" required />
+      <button type="submit">Check for Default</button>
+    </form>
+
+    <!-- Reclaim Collateral -->
+    <form id="reclaim-collateral-form">
+      <h3>Reclaim Collateral</h3>
+      <input type="number" id="loan-id-reclaim" placeholder="Loan ID" required />
+      <input type="text" id="reclaimer-private-key" placeholder="Borrower Private Key" required />
+      <button type="submit">Reclaim Collateral</button>
+    </form>
+
+    <!-- Get Loans -->
+    <form id="get-loans-form">
+      <h3>Get Loans</h3>
+      <input type="text" id="borrower-address" placeholder="Borrower Address" required />
+      <button type="submit">Get Loans</button>
+    </form>
+
+    <!-- Response Section -->
+    <div id="response" class="response"></div>
+  </div>
+
+  <script>
+    const apiUrl = "http://localhost:3000"; // Update this to match your backend URL
+
+    async function fetchData(endpoint, method, data = null) {
+      const options = {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+      };
+      if (data) options.body = JSON.stringify(data);
+
+      const response = await fetch(`${apiUrl}${endpoint}`, options);
+      return response.json();
+    }
+
+    document.getElementById('create-loan-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const borrower = document.getElementById('borrower').value;
+      const amount = document.getElementById('amount').value;
+      const loanType = document.getElementById('loan-type').value;
+      const collateralId = document.getElementById('collateral-id').value;
+
+      const result = await fetchData('/create_loan', 'POST', {
+        borrower, amount, loan_type: loanType, collateral_deed_id: collateralId
+      });
+      document.getElementById('response').textContent = JSON.stringify(result, null, 2);
+    });
+
+    document.getElementById('disburse-loan-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const loanId = document.getElementById('loan-id-disburse').value;
+      const result = await fetchData(`/disburse_loan/${loanId}`, 'POST');
+      document.getElementById('response').textContent = JSON.stringify(result, null, 2);
+    });
+
+    document.getElementById('repay-loan-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const loanId = document.getElementById('loan-id-repay').value;
+      const repaymentAmount = document.getElementById('repayment-amount').value;
+      const privateKey = document.getElementById('borrower-private-key').value;
+
+      const result = await fetchData('/repay_loan', 'POST', {
+        loan_id: loanId, repayment_amount: repaymentAmount, private_key: privateKey
+      });
+      document.getElementById('response').textContent = JSON.stringify(result, null, 2);
+    });
+
+    document.getElementById('check-default-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const loanId = document.getElementById('loan-id-default').value;
+      const result = await fetchData(`/check_for_default/${loanId}`, 'GET');
+      document.getElementById('response').textContent = JSON.stringify(result, null, 2);
+    });
+
+    document.getElementById('reclaim-collateral-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const loanId = document.getElementById('loan-id-reclaim').value;
+      const privateKey = document.getElementById('reclaimer-private-key').value;
+
+      const result = await fetchData(`/reclaim_collateral/${loanId}`, 'POST', {
+        private_key: privateKey
+      });
+      document.getElementById('response').textContent = JSON.stringify(result, null, 2);
+    });
+
+    document.getElementById('get-loans-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const borrowerAddress = document.getElementById('borrower-address').value;
+      const result = await fetchData(`/get_loans/${borrowerAddress}`, 'GET');
+      document.getElementById('response').textContent = JSON.stringify(result, null, 2);
+    });
+  </script>
+</body>
+</html>

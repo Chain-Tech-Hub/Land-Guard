@@ -1,0 +1,6 @@
+node_modules
+backend/node_modules
+backend/vendor
+backend/TCPDF-main
+backend/composer.phar
+backend
