@@ -1,12 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// Import Hardhat's console for debugging
+import "hardhat/console.sol";
+
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-// This contract manages land title deeds using ERC1155 tokens.
+// Custom errors for revert statements, all prefixed with LandTitleDeed_
+error LandTitleDeed_NotLandOwner();
+error LandTitleDeed_InvalidLandAdmin();
+error LandTitleDeed_LandCodeExists();
+error LandTitleDeed_LandNotActive();
+error LandTitleDeed_LandNotListed();
+error LandTitleDeed_LandNotOwned();
+error LandTitleDeed_InvalidLandOwner();
+error LandTitleDeed_LandNotForSale();
+
+/ This contract manages land title deeds using ERC1155 tokens.
 // It allows land registration, minting title deeds, listing land for sale, and transferring ownership.
 // The contract includes functionalities for land administration, land ownership, and land transactions.
 // It uses OpenZeppelin's libraries for token standards, ownership management, and security against reentrancy attacks.
@@ -20,14 +33,10 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // 3. New users can buy land layouts and mint title deeds
 
 contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
-    // This Contract handles three users
-    //
-    // Land Admin
-    //Land Owners (requires user address owns the one of the Land in the struct below
-    // new u
+    // Address of the land admin
     address payable public landAdmin;
 
-    // Structs and Enums
+    // Enum for land status
     enum LandStatus {
         New,
         Active,
@@ -36,48 +45,32 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
     }
 
     using Counters for Counters.Counter;
-    Counters.Counter private _landIds;
+    Counters.Counter private _landIds; // Counter for land IDs
 
     uint256 initialLandValue = 1 ether; // Initial value for land
 
-    //tracts the credibitlity of the land, ipfs hash of the land layout and the title deeds
-    //
+    // Struct to store land layout details
     struct LandLayout {
-        string landCode;
-        string layoutUrl;
-        address landOwner;
-        string titleDeedUrl;
-        LandStatus landStatus;
-        uint256 landValue;
+        string landCode; // Unique code for the land
+        string layoutUrl; // IPFS URL for the land layout
+        address landOwner; // Owner of the land
+        string titleDeedUrl; // IPFS URL for the title deed
+        LandStatus landStatus; // Status of the land
+        uint256 landValue; // Value of the land
     }
 
-    //maps the land IDs  to the specific land layout created  by physical planning as evidence of boundries
-    // of the land. through this, the land can be tracked and verified
+    // Mapping from land ID to LandLayout struct
     mapping(uint256 land_id => LandLayout land_layout) private landLayouts;
 
-    //this tracks  ownership of the land by mapping the land owner to the land layout to form atitle deed
+    // Mapping from owner address to array of owned land IDs
     mapping(address landOwner => uint256[] landOwnerIds) private titleDeeds;
 
-    // tracks  already used land codes to prevent duplicates or conflicts of boundaries
+    // Mapping to track used land codes
     mapping(string => bool) private usedLandCodes;
 
-    modifier landOwnerOnly(uint256 _landId) {
-        require(
-            landLayouts[_landId].landOwner == msg.sender,
-            "Not the land owner"
-        );
-        _;
-    }
-
-    modifier onlyLandAdmin(address _landAdmin) {
-        require(_landAdmin == landAdmin, "Invalid Land Admin");
-        _;
-    }
-
-    // event  for  land layout creation
+    // Events for various actions
     event LandLayoutCreated(string landCode, string layoutUrl);
     event landRegistrationEvent(uint256 indexed landId, address landOwner);
-
     event TitleDeedMinted(
         uint256 indexed landId,
         address indexed owner,
@@ -92,82 +85,105 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
         uint256 amount
     );
 
-    constructor()
-        ERC1155("https://api.landregistry.com/metadata/{id}")
-        Ownable(msg.sender)
-    {}
+    // Constructor sets the ERC1155 URI and the contract owner
+    constructor() ERC1155("https://api.landregistry.com/metadata/{id}") {}
 
-    // function to set new land admin address
+    //     Ownable(msg.sender)
+    // Set a new land admin address, only callable by contract owner
     function setLandAdmin(address _landAdmin) public onlyOwner {
-        landAdmin = payable(_landAdmin);
+        landAdmin = payable(_landAdmin); // Set the new land admin
+        console.log("Land admin set to:", _landAdmin); // Debug log
     }
 
-    // Admin Functions
-    // physical planning mint the land layout for the citizen
+    // Admin function to create a new land layout
     function createLandLayout(
         string memory landCode,
         string memory layoutUrl
-    ) external onlyLandAdmin(msg.sender) {
-        require(!usedLandCodes[landCode], "Land code already exists");
+    ) external {
+        // Only land admin can call
+        if (msg.sender != landAdmin) {
+            console.log("Unauthorized land layout creation by:", msg.sender);
+            revert LandTitleDeed_InvalidLandAdmin();
+        }
+        // Check for duplicate land code
+        if (usedLandCodes[landCode]) {
+            console.log("Land code already exists:", landCode);
+            revert LandTitleDeed_LandCodeExists();
+        }
 
-        _landIds.increment();
-        uint256 landId = _landIds.current();
+        _landIds.increment(); // Increment land ID counter
+        uint256 landId = _landIds.current(); // Get new land ID
 
+        // Create new land layout
         landLayouts[landId] = LandLayout({
             landCode: landCode,
             layoutUrl: layoutUrl,
             landOwner: msg.sender,
             titleDeedUrl: layoutUrl,
-            landStatus: LandStatus.New
+            landStatus: LandStatus.New,
+            landValue: initialLandValue
         });
 
-        usedLandCodes[landCode] = true;
-        emit LandLayoutCreated(landCode, layoutUrl);
+        usedLandCodes[landCode] = true; // Mark land code as used
+        emit LandLayoutCreated(landCode, layoutUrl); // Emit event
+        console.log("Land layout created:", landCode, layoutUrl); // Debug log
     }
 
-    // registration  by land admin for fresh land pacel
-    //assigning owners address
-    function landRegistration(
-        uint256 _landId,
-        address landOwner
-    ) external onlyLandAdmin(msg.sender) {
-        landLayouts[_landId].landOwner = landOwner;
-        landLayouts[_landId].landStatus = LandStatus.Active;
-        emit landRegistrationEvent(_landId, landOwner);
+    // Admin function to register a land to an owner
+    function landRegistration(uint256 _landId, address landOwner) external {
+        // Only land admin can call
+        if (msg.sender != landAdmin) {
+            console.log("Unauthorized land registration by:", msg.sender);
+            revert LandTitleDeed_InvalidLandAdmin();
+        }
+        landLayouts[_landId].landOwner = landOwner; // Assign owner
+        landLayouts[_landId].landStatus = LandStatus.Active; // Set status to active
+        emit landRegistrationEvent(_landId, landOwner); // Emit event
+        console.log("Land registered:", _landId, landOwner); // Debug log
     }
 
-    // Land owner Functions
+    // Land owner function to mint a title deed
     function mintTitleDeed(
         uint256 _landId,
         string memory _titleDeedUrl
-    ) external nonReentrant landOwnerOnly(_landId) {
-        require(
-            landLayouts[_landId].landStatus == LandStatus.Active,
-            "Land layout is not active"
-        );
+    ) external nonReentrant {
+        // Only land owner can call
+        if (landLayouts[_landId].landOwner != msg.sender) {
+            console.log("Unauthorized mint attempt by:", msg.sender);
+            revert LandTitleDeed_NotLandOwner();
+        }
+        // Land must be active
+        if (landLayouts[_landId].landStatus != LandStatus.Active) {
+            console.log("Land not active for minting:", _landId);
+            revert LandTitleDeed_LandNotActive();
+        }
 
-        string memory landLayoutUrl = landLayouts[_landId].layoutUrl;
-        _mint(msg.sender, _landId, 1, bytes(landLayoutUrl));
+        string memory landLayoutUrl = landLayouts[_landId].layoutUrl; // Get layout URL
+        _mint(msg.sender, _landId, 1, bytes(landLayoutUrl)); // Mint the token
 
-        landLayouts[_landId].titleDeedUrl = _titleDeedUrl;
+        landLayouts[_landId].titleDeedUrl = _titleDeedUrl; // Set title deed URL
 
-        emit TitleDeedMinted(_landId, msg.sender, _titleDeedUrl);
+        emit TitleDeedMinted(_landId, msg.sender, _titleDeedUrl); // Emit event
+        console.log("Title deed minted for land:", _landId, _titleDeedUrl); // Debug log
     }
 
-    // Function to list land for sale
-    // This function allows the land owner to list their land for sale at a specified price
-    function listLand(uint256 _landId) public landOwnerOnly(_landId) {
-        require(
-            landLayouts[_landId].landStatus == LandStatus.Active,
-            "Land is not active"
-        );
-        landLayouts[_landId].landStatus = LandStatus.Listed;
+    // List land for sale, only callable by land owner
+    function listLand(uint256 _landId) public {
+        // Only land owner can call
+        if (landLayouts[_landId].landOwner != msg.sender) {
+            console.log("Unauthorized list attempt by:", msg.sender);
+            revert LandTitleDeed_NotLandOwner();
+        }
+        // Land must be active
+        if (landLayouts[_landId].landStatus != LandStatus.Active) {
+            console.log("Land not active for listing:", _landId);
+            revert LandTitleDeed_LandNotActive();
+        }
+        landLayouts[_landId].landStatus = LandStatus.Listed; // Set status to listed
 
-        string memory landUrl = landLayouts[_landId].layoutUrl;
+        string memory landUrl = landLayouts[_landId].layoutUrl; // Get layout URL
 
-        // First approve the contract to handle the token
-
-        setApprovalForAll(address(this), true);
+        setApprovalForAll(address(this), true); // Approve contract to handle token
 
         _safeTransferFrom(
             msg.sender,
@@ -175,10 +191,11 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
             _landId,
             1,
             bytes(landUrl)
-        );
+        ); // Transfer token to contract
+        console.log("Land listed for sale:", _landId); // Debug log
     }
 
-    // Add IERC1155Receiver implementation
+    // IERC1155Receiver implementation
     function onERC1155Received() external pure returns (bytes4) {
         return this.onERC1155Received.selector;
     }
@@ -187,58 +204,77 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
         return this.onERC1155BatchReceived.selector;
     }
 
-    // Function to unlist land from sale
-    // This function allows the land owner to remove their land from the market
-    function unlistLand(uint256 _landId) public landOwnerOnly(_landId) {
-        require(
-            landLayouts[_landId].landStatus == LandStatus.Listed,
-            "Land is not listed"
-        );
+    // Unlist land from sale, only callable by land owner
+    function unlistLand(uint256 _landId) public {
+        // Only land owner can call
+        if (landLayouts[_landId].landOwner != msg.sender) {
+            console.log("Unauthorized unlist attempt by:", msg.sender);
+            revert LandTitleDeed_NotLandOwner();
+        }
+        // Land must be listed
+        if (landLayouts[_landId].landStatus != LandStatus.Listed) {
+            console.log("Land not listed for unlisting:", _landId);
+            revert LandTitleDeed_LandNotListed();
+        }
 
-        // Reset land status and value
-        landLayouts[_landId].landStatus = LandStatus.Active;
+        landLayouts[_landId].landStatus = LandStatus.Active; // Reset status
+        console.log("Land unlisted:", _landId); // Debug log
     }
 
-    // Function to buy land
-    // This function allows users to buy land that is listed for sale
+    // Buy land that is listed for sale
     function buyLand(uint256 _landId) public payable nonReentrant {
-        LandLayout storage land = landLayouts[_landId];
+        LandLayout storage land = landLayouts[_landId]; // Get land layout
 
-        require(
-            land.landStatus == LandStatus.Listed,
-            "Land not listed for sale"
-        );
+        // Land must be listed for sale
+        if (land.landStatus != LandStatus.Listed) {
+            console.log("Land not listed for sale:", _landId);
+            revert LandTitleDeed_LandNotForSale();
+        }
 
-        require(land.landOwner != address(0), "Invalid land owner");
+        // Land must have a valid owner
+        if (land.landOwner == address(0)) {
+            console.log("Invalid land owner for land:", _landId);
+            revert LandTitleDeed_InvalidLandOwner();
+        }
 
-        address previousOwner = land.landOwner;
-        // Transfer payment to previous owner
-        payable(previousOwner).transfer(msg.value);
-        // Update land ownership
-        land.landOwner = msg.sender;
-        land.landStatus = LandStatus.Active;
+        address previousOwner = land.landOwner; // Store previous owner
+        payable(previousOwner).transfer(msg.value); // Transfer payment
 
-        safeTransferFrom(address(this), msg.sender, _landId, 1, "");
-        emit LandSold(_landId, previousOwner, msg.sender, msg.value);
+        land.landOwner = msg.sender; // Update owner
+        land.landStatus = LandStatus.Active; // Set status to active
+
+        safeTransferFrom(address(this), msg.sender, _landId, 1, ""); // Transfer token
+        emit LandSold(_landId, previousOwner, msg.sender, msg.value); // Emit event
+
+        //         console.log(
+        //             "Land sold:",
+        //             _landId,
+        //             previousOwner,
+        //             msg.sender,
+        //             msg.value
+        //         ); // Debug log
     }
 
-    // View Functions
+    // View function to get a title deed by land ID
     function getTitleDeed(
         uint256 _landId
     ) public view returns (LandLayout memory) {
         return landLayouts[_landId];
     }
 
+    // View function to get total land count
     function getTotalLandCount() public view returns (uint256) {
         return _landIds.current();
     }
 
+    // View function to get land layout by ID
     function getLandLayout(
         uint256 _landId
     ) public view returns (LandLayout memory) {
         return landLayouts[_landId];
     }
 
+    // View function to get all land layouts
     function getAllLandLayouts() external view returns (LandLayout[] memory) {
         uint256 totalLands = _landIds.current();
         LandLayout[] memory allLands = new LandLayout[](totalLands);
@@ -250,16 +286,14 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
         return allLands;
     }
 
-    // Function to get all land owned by a specific owner
-
+    // View function to get all land owned by the caller
     function getOwnerDeeds() public view returns (LandLayout[] memory) {
         uint[] memory MyTitleIDs = titleDeeds[msg.sender];
-        LandLayout[] memory landArray;
+        LandLayout[] memory landArray = new LandLayout[](MyTitleIDs.length);
 
         for (uint256 i = 0; i < MyTitleIDs.length; i++) {
             LandLayout memory land_layout = getLandLayout(MyTitleIDs[i]);
-
-            landArray[0] = land_layout;
+            landArray[i] = land_layout;
         }
         return landArray;
     }
