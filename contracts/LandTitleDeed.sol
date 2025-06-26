@@ -6,7 +6,25 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+// This contract manages land title deeds using ERC1155 tokens.
+// It allows land registration, minting title deeds, listing land for sale, and transferring ownership.
+// The contract includes functionalities for land administration, land ownership, and land transactions.
+// It uses OpenZeppelin's libraries for token standards, ownership management, and security against reentrancy attacks.
+// The contract is designed to handle land layouts, ownership, and transactions securely and efficiently.
+// It includes features for land layout creation, registration, minting title deeds, listing and unlisting land, and buying land.
+// The contract also provides view functions to retrieve land details, title deeds, and ownership information.
+
+// This contract handles three users:
+// 1. Land Admin
+// 2. Land Owners (requires user address owns one of the lands in the struct below)
+// 3. New users can buy land layouts and mint title deeds
+
 contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
+    // This Contract handles three users
+    //
+    // Land Admin
+    //Land Owners (requires user address owns the one of the Land in the struct below
+    // new u
     address payable public landAdmin;
 
     // Structs and Enums
@@ -30,6 +48,7 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
         address landOwner;
         string titleDeedUrl;
         LandStatus landStatus;
+        uint256 landValue;
     }
 
     //maps the land IDs  to the specific land layout created  by physical planning as evidence of boundries
@@ -42,9 +61,9 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
     // tracks  already used land codes to prevent duplicates or conflicts of boundaries
     mapping(string => bool) private usedLandCodes;
 
-    modifier landOwnerOnly(uint256 landId) {
+    modifier landOwnerOnly(uint256 _landId) {
         require(
-            landLayouts[landId].landOwner == msg.sender,
+            landLayouts[_landId].landOwner == msg.sender,
             "Not the land owner"
         );
         _;
@@ -107,6 +126,7 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
     }
 
     // registration  by land admin for fresh land pacel
+    //assigning owners address
     function landRegistration(
         uint256 _landId,
         address landOwner
@@ -197,8 +217,7 @@ contract LandTitleDeed is ERC1155, Ownable, ReentrancyGuard {
         // Update land ownership
         land.landOwner = msg.sender;
         land.landStatus = LandStatus.Active;
-        land.landValue = msg.value;
-        // Transfer NFT
+
         safeTransferFrom(address(this), msg.sender, _landId, 1, "");
         emit LandSold(_landId, previousOwner, msg.sender, msg.value);
     }
