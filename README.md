@@ -142,7 +142,7 @@ View / Verify / Transfer / Finance
 
 ---
 
-## For Blockchain Developers & Hackathon Evaluators
+## For Blockchain Developers
 
 - **Smart Contracts:**  
   Written in Solidity (ERC-1155, Registry pattern).  
