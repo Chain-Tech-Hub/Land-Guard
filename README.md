@@ -273,8 +273,8 @@ GNU Affero General Public License v3.0 (AGPL-3.0)
 ---
 
 ## Contact
-**Implementation Lead:** Dr. Aminata Ouédraogo  
-**Email:** ouagadev@chaintechhub.com  
+**Implementation Lead:** Chain Tech Hub 
+**Email:** hello@chaintechhub.com  
 **Community Portal:** www.landguard.bf
 
 ---
