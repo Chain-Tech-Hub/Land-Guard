@@ -1,0 +1,17 @@
+{
+    "name": "prince/backend",
+    "autoload": {
+        "psr-4": {
+            "Prince\\Backend\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "born2code265",
+            "email": "born2code265@gmail.com"
+        }
+    ],
+    "require": {
+        "web3-php/web3": "dev-master"
+    }
+}
