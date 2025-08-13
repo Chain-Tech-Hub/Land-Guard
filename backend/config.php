@@ -1,6 +1,6 @@
 <?php
 require("vendor/autoload.php");
-
+require("vendor/web3p/web3.php");
 use Web3\Web3;
 use Web3\Providers\HttpProvider;
 use Web3\Eth;
