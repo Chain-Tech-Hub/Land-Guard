@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Land Guard Design System - Professional civic tech with blockchain elements */
+
+@layer base {
+  :root {
+    /* Core neutral colors */
+    --background: 240 10% 98%;
+    --foreground: 216 15% 15%;
+
+    /* Card system */
+    --card: 0 0% 100%;
+    --card-foreground: 216 15% 15%;
+
+    /* Popover system */
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 15% 15%;
+
+    /* Primary - Deep civic blue for trust and authority */
+    --primary: 218 85% 25%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 218 70% 35%;
+    --primary-dark: 218 95% 18%;
+
+    /* Secondary - Rich land green for growth and nature */
+    --secondary: 142 60% 25%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 142 50% 35%;
+
+    /* Accent - Blockchain gold for value and verification */
+    --accent: 38 85% 55%;
+    --accent-foreground: 216 15% 15%;
+    --accent-light: 38 75% 65%;
+
+    /* Muted system */
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    /* Status colors for land states */
+    --status-active: 142 70% 35%;
+    --status-listed: 212 85% 45%;
+    --status-disputed: 0 75% 55%;
+    --status-sold: 240 8% 55%;
+
+    /* Destructive */
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Border and input */
+    --border: 240 8% 88%;
+    --input: 240 8% 88%;
+    --ring: 218 85% 25%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-light)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-light)));
+
+    /* Shadows */
+    --shadow-soft: 0 4px 12px -2px hsl(var(--primary) / 0.1);
+    --shadow-medium: 0 8px 24px -4px hsl(var(--primary) / 0.15);
+    --shadow-strong: 0 16px 48px -8px hsl(var(--primary) / 0.2);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Core neutral colors - dark mode */
+    --background: 216 20% 8%;
+    --foreground: 240 10% 95%;
+
+    /* Card system - dark mode */
+    --card: 216 18% 12%;
+    --card-foreground: 240 10% 95%;
+
+    /* Popover system - dark mode */
+    --popover: 216 18% 12%;
+    --popover-foreground: 240 10% 95%;
+
+    /* Primary - Lighter blue for dark mode */
+    --primary: 218 80% 65%;
+    --primary-foreground: 216 20% 8%;
+    --primary-light: 218 70% 75%;
+    --primary-dark: 218 90% 55%;
+
+    /* Secondary - Bright green for dark mode */
+    --secondary: 142 65% 45%;
+    --secondary-foreground: 216 20% 8%;
+    --secondary-light: 142 60% 55%;
+
+    /* Accent - Warm gold for dark mode */
+    --accent: 38 80% 65%;
+    --accent-foreground: 216 20% 8%;
+    --accent-light: 38 70% 75%;
+
+    /* Muted system - dark mode */
+    --muted: 216 15% 18%;
+    --muted-foreground: 240 5% 65%;
+
+    /* Status colors - adjusted for dark mode */
+    --status-active: 142 65% 45%;
+    --status-listed: 212 80% 55%;
+    --status-disputed: 0 70% 65%;
+    --status-sold: 240 10% 65%;
+
+    /* Destructive - dark mode */
+    --destructive: 0 70% 65%;
+    --destructive-foreground: 216 20% 8%;
+
+    /* Border and input - dark mode */
+    --border: 216 15% 22%;
+    --input: 216 15% 22%;
+    --ring: 218 80% 65%;
+
+    /* Sidebar colors for dark mode */
+    --sidebar-background: 216 18% 10%;
+    --sidebar-foreground: 240 10% 90%;
+    --sidebar-primary: 218 80% 65%;
+    --sidebar-primary-foreground: 216 20% 8%;
+    --sidebar-accent: 216 15% 18%;
+    --sidebar-accent-foreground: 240 10% 90%;
+    --sidebar-border: 216 15% 22%;
+    --sidebar-ring: 218 80% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+  
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+  
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .shadow-medium {
+    box-shadow: var(--shadow-medium);
+  }
+  
+  .shadow-strong {
+    box-shadow: var(--shadow-strong);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .transition-bounce {
+    transition: var(--transition-bounce);
+  }
+}
