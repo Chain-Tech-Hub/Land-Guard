@@ -1,4 +1,4 @@
-# Land Guard mart contracts
+# Land Guard Smart contracts
 Try running some of the following tasks:
 
 ```shell
