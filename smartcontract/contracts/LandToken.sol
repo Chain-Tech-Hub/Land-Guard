@@ -21,6 +21,7 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant RESOLVER_ROLE = keccak256("RESOLVER_ROLE");
     bytes32 public constant LAND_ADMIN_ROLE = keccak256("LAND_ADMIN_ROLE");
+
     uint256 public constant INITIAL_LAND_VALUE = 1 ether;
 
     // ============ ENUMS ============
@@ -33,48 +34,52 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // ============ STRUCTS ============
-    struct LandLayout {
+    struct LandPacel {
         string landCode;
-        string layoutUrl;
-        address landOwner;
+        string landPacelURL;
+        address currentLandOwner;
         string titleDeedUrl;
         LandStatus landStatus;
-        uint256 landValue;
-        bool inDispute;
+        uint256 landPacelValue;
     }
 
     // ============ STORAGE ============
-    uint256 public landIds;
-    address payable public landAdmin;
+    uint256 public landPacelIds; // total number of land parcels mapped
+    address payable[] public landAdmins;
+    address payable private _minOfLand;
+    uint256 public landTaxFee;
     string private _baseURI;
+    uint256 public landIds;
 
-    mapping(uint256 => LandLayout) private landLayouts;
-    mapping(address => EnumerableSet.UintSet) private titleDeeds;
-    mapping(string => bool) private usedLandCodes;
+    mapping(uint256 landId => LandPacel landPacel) public landPacels;
+
+    mapping(address landOwner => EnumerableSet.UintSet landIds)
+        private titleDeeds;
+    mapping(string landCode => bool status) private usedLandCodes;
 
     // ============ EVENTS ============
-    event LandLayoutCreated(
+    event LandMapCreated(
         string indexed landCode,
-        string layoutUrl,
+        string LandPacelURL,
         uint256 indexed landId
     );
-    event LandRegistrationEvent(
+    event LandPacelMinted(
         uint256 indexed landId,
-        address indexed landOwner,
-        string layoutUrl
+        address indexed currentLandOwner,
+        string LandPacelURL
     );
     event TitleDeedMinted(
         uint256 indexed landId,
         address indexed owner,
         string titleDeedUrl
     );
-    event LandListed(
+    event LandPacelListed(
         uint256 indexed landId,
         address indexed owner,
         uint256 price
     );
-    event LandUnlisted(uint256 indexed landId, address indexed owner);
-    event LandSold(
+    event LandPacelUnlisted(uint256 indexed landId, address indexed owner);
+    event LandPacelTransfer(
         uint256 indexed landId,
         address indexed from,
         address indexed to,
@@ -83,33 +88,41 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
     event LandDisputeStatusChanged(uint256 indexed landId, bool inDispute);
 
     // ============ ERRORS ============
-    error NotLandOwner();
-    error InvalidLandAdmin();
-    error LandCodeExists();
-    error LandNotActive();
-    error LandNotListed();
-    error LandNotOwned();
-    error InvalidLandOwner();
-    error LandNotForSale();
-    error ArrayMismatch();
-    error AlreadyPermanent();
-    error TemporaryToken();
-    error ParcelInDispute();
+    error LandToken_NotLandOwner();
+    error LandToken_InvalidLandAdmin();
+    error LandToken_LandCodeExists();
+    error LandToken_LandNotActive();
+    error LandToken_LandNotListed();
+    error LandToken_LandNotOwned();
+    error LandToken_InvalidLandOwner();
+    error LandToken_LandNotForSale();
+    error LandToken_ArrayMismatch();
+    error LandToken_AlreadyPermanent();
+    error LandToken_TemporaryToken();
+    error LandToken_ParcelInDispute();
+    error LandToken_InvalidLandID();
 
     // ============ MODIFIERS ============
-    modifier onlyValidLandId(uint256 landId) {
-        require(landId > 0 && landId <= landIds, "Invalid land ID");
+    modifier onlyValidLandId(uint256 _landId) {
+        if (!(_landId > 0 && _landId <= landIds))
+            revert LandToken_InvalidLandID();
+
         _;
     }
 
     // ============ CONSTRUCTOR ============
-    constructor(string memory baseURI) ERC1155("") {
+    constructor(
+        string memory baseURI
+    )
+        ERC1155(
+            "https://pink-capitalist-rook-863.mypinata.cloud/ipfs/bafybeid7jx4uwvqvowbgtbsndrgyq456qwqhpioj2ei35qchqbwzrw6g7e?pinataGatewayToken=5_ZRQldcSlOv5HRMhzYcFbT0JxK_-8UGEpOn8He3vI-XcvSVPmryoXJxOFdLY1Ul"
+        )
+    {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
         _grantRole(RESOLVER_ROLE, msg.sender);
         _grantRole(LAND_ADMIN_ROLE, msg.sender);
-
-        landAdmin = payable(msg.sender);
+        landAdmins[0] = payable(msg.sender);
         _baseURI = baseURI;
     }
 
@@ -117,8 +130,16 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
     function setLandAdmin(
         address _landAdmin
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        landAdmin = payable(_landAdmin);
+        _landAdmin = payable(_landAdmin);
         _grantRole(LAND_ADMIN_ROLE, _landAdmin);
+    }
+
+    function setMinOfLands(
+        address _newMinOfLand
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _minOfLand = payable(_newMinOfLand);
+        _grantRole(LAND_ADMIN_ROLE, _newMinOfLand);
+        _grantRole(MINTER_ROLE, _newMinOfLand);
     }
 
     function setBaseURI(
@@ -136,136 +157,140 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // ============ LAND MANAGEMENT ============
-    function createLandLayout(
-        string memory landCode,
-        string memory layoutUrl
+    function createLandPacel(
+        string memory _landCode,
+        string memory _layoutUrl
     ) external onlyRole(LAND_ADMIN_ROLE) whenNotPaused {
-        if (usedLandCodes[landCode]) revert LandCodeExists();
+        if (usedLandCodes[_landCode]) revert LandToken_LandCodeExists();
 
         landIds++;
         uint256 landId = landIds;
 
-        landLayouts[landId] = LandLayout({
-            landCode: landCode,
-            layoutUrl: layoutUrl,
-            landOwner: address(0),
-            titleDeedUrl: "",
+        landPacels[landId] = LandPacel({
+            landCode: _landCode,
+            landPacelURL: _layoutUrl,
+            currentLandOwner: _minOfLand,
+            titleDeedUrl: _layoutUrl,
             landStatus: LandStatus.New,
-            landValue: INITIAL_LAND_VALUE,
-            inDispute: false
+            landPacelValue: INITIAL_LAND_VALUE
         });
 
-        usedLandCodes[landCode] = true;
-        emit LandLayoutCreated(landCode, layoutUrl, landId);
+        usedLandCodes[_landCode] = true;
+        emit LandMapCreated(_landCode, _layoutUrl, landId);
     }
 
     function landRegistration(
-        uint256 landId,
-        address landOwner
-    ) external onlyRole(LAND_ADMIN_ROLE) whenNotPaused onlyValidLandId(landId) {
-        require(landOwner != address(0), "Invalid owner");
+        uint256 _landId,
+        address _landOwner
+    )
+        external
+        onlyRole(LAND_ADMIN_ROLE)
+        whenNotPaused
+        onlyValidLandId(_landId)
+    {
+        require(_landOwner != address(0), "Invalid owner");
 
-        LandLayout storage land = landLayouts[landId];
-        land.landOwner = landOwner;
+        LandPacel storage land = landPacels[_landId];
+        land.currentLandOwner = _landOwner;
         land.landStatus = LandStatus.Active;
 
-        titleDeeds[landOwner].add(landId);
-        emit LandRegistrationEvent(landId, landOwner, land.layoutUrl);
+        titleDeeds[_landOwner].add(_landId);
+        emit LandPacelMinted(_landId, _landOwner, land.landPacelURL);
     }
 
     // ============ TITLE DEED FUNCTIONS ============
     function mintTitleDeed(
-        uint256 landId,
-        string memory titleDeedUrl
-    ) external whenNotPaused nonReentrant onlyValidLandId(landId) {
-        LandLayout storage land = landLayouts[landId];
+        uint256 _landId,
+        string memory _titleDeedUrl
+    ) external whenNotPaused nonReentrant onlyValidLandId(_landId) {
+        LandPacel storage land = landPacels[_landId];
 
-        if (land.landOwner != msg.sender) revert NotLandOwner();
-        if (land.landStatus != LandStatus.Active) revert LandNotActive();
-        if (land.inDispute) revert ParcelInDispute();
+        if (land.currentLandOwner != msg.sender)
+            revert LandToken_NotLandOwner();
+        if (land.landStatus != LandStatus.Active)
+            revert LandToken_LandNotActive();
 
-        _mint(msg.sender, landId, 1, "");
-        land.titleDeedUrl = titleDeedUrl;
+        _mint(msg.sender, _landId, 1, bytes(_titleDeedUrl));
+        land.titleDeedUrl = _titleDeedUrl;
 
-        emit TitleDeedMinted(landId, msg.sender, titleDeedUrl);
+        emit TitleDeedMinted(_landId, msg.sender, _titleDeedUrl);
     }
 
     // ============ MARKETPLACE FUNCTIONS ============
     function listLand(
-        uint256 landId,
-        uint256 price
-    ) external whenNotPaused onlyValidLandId(landId) {
-        LandLayout storage land = landLayouts[landId];
+        uint256 _landId,
+        uint256 _price
+    ) external whenNotPaused onlyValidLandId(_landId) {
+        LandPacel storage land = landPacels[_landId];
 
-        if (land.landOwner != msg.sender) revert NotLandOwner();
-        if (land.landStatus != LandStatus.Active) revert LandNotActive();
-        if (land.inDispute) revert ParcelInDispute();
+        if (land.currentLandOwner != msg.sender)
+            revert LandToken_NotLandOwner();
+        if (land.landStatus != LandStatus.Active)
+            revert LandToken_LandNotActive();
 
         land.landStatus = LandStatus.Listed;
-        land.landValue = price;
+        land.landPacelValue = _price;
 
-        emit LandListed(landId, msg.sender, price);
+        emit LandPacelListed(_landId, msg.sender, _price);
     }
 
     function unlistLand(
         uint256 landId
     ) external whenNotPaused onlyValidLandId(landId) {
-        LandLayout storage land = landLayouts[landId];
+        LandPacel storage land = landPacels[landId];
 
-        if (land.landOwner != msg.sender) revert NotLandOwner();
-        if (land.landStatus != LandStatus.Listed) revert LandNotListed();
+        if (land.currentLandOwner != msg.sender)
+            revert LandToken_NotLandOwner();
+        if (land.landStatus != LandStatus.Listed)
+            revert LandToken_LandNotListed();
 
         land.landStatus = LandStatus.Active;
-        emit LandUnlisted(landId, msg.sender);
+        emit LandPacelUnlisted(landId, msg.sender);
     }
 
     function buyLand(
-        uint256 landId
-    ) external payable whenNotPaused nonReentrant onlyValidLandId(landId) {
-        LandLayout storage land = landLayouts[landId];
+        uint256 _landId
+    ) external payable whenNotPaused nonReentrant onlyValidLandId(_landId) {
+        LandPacel storage land = landPacels[_landId];
 
-        if (land.landStatus != LandStatus.Listed) revert LandNotForSale();
-        if (land.landOwner == address(0)) revert InvalidLandOwner();
-        if (land.inDispute) revert ParcelInDispute();
-        if (msg.value < land.landValue) revert("Insufficient payment");
+        if (land.landStatus != LandStatus.Listed)
+            revert LandToken_LandNotForSale();
+        if (land.currentLandOwner == address(0))
+            revert LandToken_InvalidLandOwner();
 
-        address previousOwner = land.landOwner;
-        payable(previousOwner).transfer(msg.value);
+        if (msg.value + landTaxFee < land.landPacelValue)
+            revert("Insufficient payment");
 
-        land.landOwner = msg.sender;
+        address previousOwner = land.currentLandOwner;
+        uint256 landValue = land.landPacelValue;
+        uint256 currentlandTaxFee = _calculateLandTax(landValue);
+        payable(previousOwner).transfer(landValue - landTaxFee);
+        payable(_minOfLand).transfer(currentlandTaxFee);
+
+        land.currentLandOwner = msg.sender;
         land.landStatus = LandStatus.Active;
 
-        titleDeeds[previousOwner].remove(landId);
-        titleDeeds[msg.sender].add(landId);
+        titleDeeds[previousOwner].remove(_landId);
+        titleDeeds[msg.sender].add(_landId);
 
-        if (balanceOf(previousOwner, landId) > 0) {
-            _safeTransferFrom(previousOwner, msg.sender, landId, 1, "");
+        if (balanceOf(previousOwner, _landId) > 0) {
+            _safeTransferFrom(previousOwner, msg.sender, _landId, 1, "");
         }
 
-        emit LandSold(landId, previousOwner, msg.sender, msg.value);
+        emit LandPacelTransfer(_landId, previousOwner, msg.sender, msg.value);
     }
 
     // ============ DISPUTE MANAGEMENT ============
-    function setLandDisputeStatus(
-        uint256 landId,
-        bool inDispute
-    ) external onlyRole(RESOLVER_ROLE) onlyValidLandId(landId) {
-        landLayouts[landId].inDispute = inDispute;
-        if (inDispute) {
-            landLayouts[landId].landStatus = LandStatus.Disputed;
-        }
-        emit LandDisputeStatusChanged(landId, inDispute);
-    }
 
     // ============ VIEW FUNCTIONS ============
     function uri(uint256 tokenId) public view override returns (string memory) {
         return string(abi.encodePacked(_baseURI, tokenId.toString()));
     }
 
-    function getLandLayout(
-        uint256 landId
-    ) external view onlyValidLandId(landId) returns (LandLayout memory) {
-        return landLayouts[landId];
+    function getLandPacel(
+        uint256 _landId
+    ) external view onlyValidLandId(_landId) returns (LandPacel memory) {
+        return landPacels[_landId];
     }
 
     function getOwnerDeeds(
@@ -274,20 +299,20 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
         return titleDeeds[owner].values();
     }
 
-    function getListedLands() external view returns (LandLayout[] memory) {
+    function getListedLands() external view returns (LandPacel[] memory) {
         uint256 count = 0;
         for (uint256 i = 1; i <= landIds; i++) {
-            if (landLayouts[i].landStatus == LandStatus.Listed) {
+            if (landPacels[i].landStatus == LandStatus.Listed) {
                 count++;
             }
         }
 
-        LandLayout[] memory listedLands = new LandLayout[](count);
+        LandPacel[] memory listedLands = new LandPacel[](count);
         uint256 currentIndex = 0;
 
         for (uint256 i = 1; i <= landIds; i++) {
-            if (landLayouts[i].landStatus == LandStatus.Listed) {
-                listedLands[currentIndex] = landLayouts[i];
+            if (landPacels[i].landStatus == LandStatus.Listed) {
+                listedLands[currentIndex] = landPacels[i];
                 currentIndex++;
             }
         }
@@ -295,6 +320,12 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // ============ INTERNAL FUNCTIONS ============
+    function _calculateLandTax(
+        uint256 landValue
+    ) internal view returns (uint256) {
+        return (landValue * landTaxFee) / 10000; // Assuming landTaxFee is in basis points
+    }
+
     function _update(
         address from,
         address to,
@@ -302,14 +333,6 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
         uint256[] memory amounts
     ) internal virtual override {
         super._update(from, to, ids, amounts);
-
-        if (from != address(0)) {
-            for (uint256 i = 0; i < ids.length; i++) {
-                if (landLayouts[ids[i]].inDispute) {
-                    revert ParcelInDispute();
-                }
-            }
-        }
     }
 
     function supportsInterface(

@@ -64,10 +64,8 @@ contract LandRegistry is AccessControl, EIP712 {
 
         conflictStatus[tokenId] = false;
 
-        LandToken.LandLayout memory landLayout = landToken.getLandLayout(
-            tokenId
-        );
-        address currentOwner = landLayout.landOwner;
+        LandToken.LandPacel memory landPacels = landToken.getLandPacel(tokenId);
+        address currentOwner = landPacels.currentLandOwner;
 
         if (landToken.balanceOf(currentOwner, tokenId) > 0) {
             landToken.safeTransferFrom(
