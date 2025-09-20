@@ -111,9 +111,8 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // ============ CONSTRUCTOR ============
-    constructor(
-        string memory baseURI
-    )
+    constructor()
+        payable
         ERC1155(
             "https://pink-capitalist-rook-863.mypinata.cloud/ipfs/bafybeid7jx4uwvqvowbgtbsndrgyq456qwqhpioj2ei35qchqbwzrw6g7e?pinataGatewayToken=5_ZRQldcSlOv5HRMhzYcFbT0JxK_-8UGEpOn8He3vI-XcvSVPmryoXJxOFdLY1Ul"
         )
@@ -122,8 +121,8 @@ contract LandToken is ERC1155, AccessControl, ReentrancyGuard, Pausable {
         _grantRole(MINTER_ROLE, msg.sender);
         _grantRole(RESOLVER_ROLE, msg.sender);
         _grantRole(LAND_ADMIN_ROLE, msg.sender);
-        landAdmins[0] = payable(msg.sender);
-        _baseURI = baseURI;
+        landAdmins.push(payable(msg.sender));
+        _baseURI = "https://pink-capitalist-rook-863.mypinata.cloud/ipfs/bafkreibkicyxpnlobomntg6sl5w6w5hqwarsm7cb575nq36gkdpnd5cfsq?pinataGatewayToken=5_ZRQldcSlOv5HRMhzYcFbT0JxK_-8UGEpOn8He3vI-XcvSVPmryoXJxOFdLY1Ul";
     }
 
     // ============ ADMIN FUNCTIONS ============
