@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "landguard-60255",
+  "private_key_id": "dc3fb9dccaf431707d275fc9365da40db000c107",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCfJLGm+EZUKv2B\nP04xFNrvLsb0SURlsza6QnHCAFi1kqPZ7mZWxni8C7uM2BKfid6vqB8UfeARG6aI\nw51hcxGj0H+qWYfnxIup72Zs6h5S4CbYLmt8V0ZNVZ9DfODOYPoWoCEE7N2RkZZ5\neyLwLX3EGws9P+WLCEMvGYRlXyyfn1Ve7XUO43gJs+C1gduc5xVK/L8fqJWrXCEn\n/cObrZ9HmU+ZqJf5B8e8k52vwwAXGbTifVcu8ULbkZUG9UxKXtg9BqwMXog//5O0\nrhL7iK4UvMXc1whT07OfCIUh98qyAp+l9fq6QHc0qQ6g6LaTYRq2d9EK6QMjNEhG\nmtjrjdJtAgMBAAECggEAHCNNQ+Pm72/Qdb8/MH9q/FpNdBjWPpMSzJj96xrLlIMS\ndHBp6NLbuwfqB8uWc13ZoT49DI77BJtadRj9JSNGzauKPxDobiq6tPeuqPg2F1op\nlBSVDZ2SwQ6wA6s7RlIwNbrnS6sju969d8o1UbkBYSCU+qXnDI+P7W56EcBjr+8h\nM6lnbXS8VJMO3j4PwUQOkbq92mXkJPkPojBeMRae0D6zyJ0HIYWjzfJEVc3C+JaB\nn0YxqBp0PubhOLV4k6neZ4hh1OgUrkWPvGdOdyUmjRoJwVN961Dyb/AQnLICuOQA\nao1c0yOM36Zfd3A0CLakMAuOUlr6RYwVDmXavapYoQKBgQDMgjp07XSM/SDw4jI0\n1QV4rHw3RsdSWyAP0R79f/4LEL5LVdq4t1JjAJ1Ai+HxaDyXoDEJ+n4VjxjnUhat\n1gDyWLUQJJHfkN9pK+TcGKArSZqwnBG2REMYrLusSAWnv1NAO/p+gD60qCzLcQKx\na90pH9Gepy5g0wmFRYOBr/UOUQKBgQDHNmeS5V7W3x7c11KRWsfBfygXafrYbnx0\na35oZxIPRiS020EaQ+8XtLQL0Kog7100G5Wj23Jc48Ve8Z7XhGhHtbUvIukcy8Cl\n22D+oNCt9QqJCH66jYTKg8fyaC0ov+C1y6jOR3P9iDR6/2Pcdhh0GO+aXwRENVxV\n6/B3KArvXQKBgBt2raUAMnOwlpjit31S0h5Hg5LkxWWw6RhWrAO9CX+w6u0xBWNi\n8wRqk7OUVW5W4jQ2hf9iDUaV5fFCm9sSbyQcd4xIbPKKAQadp2lLQU8u3kAzZUmF\n10DcCYP0VBYX4nUw2M3eKQ2XvBRCA+uRoayhIkRdDSRhkti74hIrcAxRAoGBAIM5\nQSywTrK3srrCU69P3zmEq0IRG52p2e1OSaw4CNtq1w8TRmUozrwM2nTV9NtREVIb\nwYx4J3MsznxmKL3KiG6EMV9lXa0MQlB+m/verteIDHKL1/7G7ewAtprlKKopCrp1\n9zI6OxuMtxU2We+FE0KWkm5bnJHZnIM0seerxtg5AoGBAIZr6Edq8eT6rosPvMRr\nYfGWe+5cxZS0aBB+gppuIlu0DkRVO4fF1QuYMNsosdvcYvNlVqYO+4ntaniV/gG8\n7LnmwvigPOGYO0EaUHWtX/GWUFNabFQg6W+++70gknJasP+JhPTBiX1LVrqSNRCv\ntR567EeLaPCnGa2unKl9JoCX\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@landguard-60255.iam.gserviceaccount.com",
+  "client_id": "107765291223863081668",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40landguard-60255.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

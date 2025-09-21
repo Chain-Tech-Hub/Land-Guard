@@ -3,11 +3,12 @@
 
 const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
 
-const baseURI = "https://landguard.bf/metadata/";
-module.exports = buildModule("LandToken", (m) => {
-  const tokken_url = m.getParameter("baseURI", baseURI);
+module.exports = buildModule("LandSystem", (m) => {
+  // 1) Deploy LandToken (no constructor args)
+  const landToken = m.contract("LandToken");
 
-  const landTokenUrl = m.contract("LandToken");
+  // 2) Deploy LandRegistry with LandToken address
+  const landRegistry = m.contract("LandRegistry", [landToken]);
 
-  return { landTokenUrl };
+  return { landToken, landRegistry };
 });
