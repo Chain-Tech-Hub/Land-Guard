@@ -4,5 +4,6 @@ backend/vendor
 backend/TCPDF-main
 backend/composer.phar
 
-backend/landguard2025
-backend/node/landguard2025
+backend/node/landguard2025.json
+./backend/node/landguard2025.json
+landguard2025.json
