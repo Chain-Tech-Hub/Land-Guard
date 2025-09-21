@@ -4,3 +4,5 @@ backend/vendor
 backend/TCPDF-main
 backend/composer.phar
 
+backend/landguard2025
+backend/node/landguard2025
