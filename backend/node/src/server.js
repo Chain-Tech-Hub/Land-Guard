@@ -52,7 +52,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 369;
 app.listen(PORT, () => {
   console.log(`LandGuard backend listening on port ${PORT}`);
 });

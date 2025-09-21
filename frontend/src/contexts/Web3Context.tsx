@@ -1,16 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ethers } from 'ethers';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import axios from 'axios';
 import { toast } from 'sonner';
 
-// Contract ABIs
-import LandTokenABI from '../contracts/LandToken.json';
-import LandRegistryABI from '../contracts/LandRegistry.json';
-
-// Contract addresses (update these with your deployed addresses)
-const CONTRACTS = {
-  LAND_TOKEN: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  LAND_REGISTRY: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // Update with actual address
-};
+const API_BASE_URL = process.env.VITE_APP_API_URL || 'http://localhost:3001/api';
 
 export interface LandLayout {
   landCode: string;
@@ -23,24 +15,16 @@ export interface LandLayout {
 }
 
 interface Web3ContextType {
-  // Connection state
-  provider: ethers.BrowserProvider | null;
-  signer: ethers.JsonRpcSigner | null;
+  // User state
   account: string | null;
-  chainId: number | null;
   isConnected: boolean;
   isLoading: boolean;
-
-  // Contracts
-  landTokenContract: ethers.Contract | null;
-  landRegistryContract: ethers.Contract | null;
 
   // Connection methods
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
-  switchNetwork: (chainId: number) => Promise<void>;
 
-  // Contract methods
+  // Land management methods
   createLandLayout: (landCode: string, layoutUrl: string) => Promise<void>;
   registerLand: (landId: number, landOwner: string) => Promise<void>;
   mintTitleDeed: (landId: number, titleDeedUrl: string) => Promise<void>;
@@ -48,14 +32,14 @@ interface Web3ContextType {
   buyLand: (landId: number, price: string) => Promise<void>;
   unlistLand: (landId: number) => Promise<void>;
   getLandLayout: (landId: number) => Promise<LandLayout | null>;
-  getListedLands: () => Promise<LandLayout[]>;
-  getOwnerDeeds: (owner: string) => Promise<number[]>;
-  flagConflict: (tokenId: number, evidenceHash: string) => Promise<void>;
-  resolveConflict: (tokenId: number, rightfulOwner: string, signatures: string[]) => Promise<void>;
 
-  // Utility methods
-  formatEther: (value: string) => string;
-  parseEther: (value: string) => string;
+  // Admin methods
+  addSteward: (address: string) => Promise<void>;
+  removeSteward: (address: string) => Promise<void>;
+
+  // Dispute resolution
+  flagConflict: (landId: number, evidenceHash: string) => Promise<void>;
+  resolveConflict: (landId: number, rightfulOwner: string) => Promise<void>;
 }
 
 const Web3Context = createContext<Web3ContextType | undefined>(undefined);
@@ -73,326 +57,195 @@ interface Web3ProviderProps {
 }
 
 export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
-  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
-  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
   const [account, setAccount] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [landTokenContract, setLandTokenContract] = useState<ethers.Contract | null>(null);
-  const [landRegistryContract, setLandRegistryContract] = useState<ethers.Contract | null>(null);
 
-  // Initialize contracts when signer is available
-  useEffect(() => {
-    if (signer) {
-      const landToken = new ethers.Contract(CONTRACTS.LAND_TOKEN, LandTokenABI, signer);
-      const landRegistry = new ethers.Contract(CONTRACTS.LAND_REGISTRY, LandRegistryABI, signer);
-      
-      setLandTokenContract(landToken);
-      setLandRegistryContract(landRegistry);
-    } else {
-      setLandTokenContract(null);
-      setLandRegistryContract(null);
+  // API helpers
+  const api = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+      'Content-Type': 'application/json'
     }
-  }, [signer]);
+  });
 
-  // Check if wallet is already connected
-  useEffect(() => {
-    checkConnection();
-  }, []);
-
-  const checkConnection = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.listAccounts();
-        
-        if (accounts.length > 0) {
-          const signer = await provider.getSigner();
-          const network = await provider.getNetwork();
-          
-          setProvider(provider);
-          setSigner(signer);
-          setAccount(accounts[0].address);
-          setChainId(Number(network.chainId));
-          setIsConnected(true);
-        }
-      } catch (error) {
-        console.error('Error checking connection:', error);
-      }
+  // Update authorization header when account changes
+  api.interceptors.request.use((config) => {
+    if (account) {
+      config.headers['Authorization'] = `Bearer ${account}`;
     }
+    return config;
+  });
+
+  const handleError = (error: any) => {
+    console.error('Error:', error);
+    toast.error(error.response?.data?.message || error.message || 'Operation failed');
+    throw error;
   };
 
+  // Connection methods
   const connectWallet = async () => {
-    if (typeof window.ethereum === 'undefined') {
-      toast.error('MetaMask is not installed. Please install MetaMask to continue.');
-      return;
-    }
-
-    setIsLoading(true);
     try {
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
-      
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const network = await provider.getNetwork();
-      const address = await signer.getAddress();
-
-      setProvider(provider);
-      setSigner(signer);
-      setAccount(address);
-      setChainId(Number(network.chainId));
+      setIsLoading(true);
+      const response = await api.post('/auth/connect');
+      setAccount(response.data.address);
       setIsConnected(true);
-
-      toast.success('Wallet connected successfully!');
-    } catch (error: any) {
-      console.error('Error connecting wallet:', error);
-      toast.error('Failed to connect wallet: ' + error.message);
+      toast.success('Connected successfully');
+    } catch (error) {
+      handleError(error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const disconnectWallet = () => {
-    setProvider(null);
-    setSigner(null);
     setAccount(null);
-    setChainId(null);
     setIsConnected(false);
-    setLandTokenContract(null);
-    setLandRegistryContract(null);
-    toast.success('Wallet disconnected');
+    toast.info('Disconnected');
   };
 
-  const switchNetwork = async (targetChainId: number) => {
-    if (!window.ethereum) return;
-
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${targetChainId.toString(16)}` }],
-      });
-    } catch (error: any) {
-      if (error.code === 4902) {
-        // Network not added to MetaMask
-        toast.error('Please add the network to MetaMask manually');
-      } else {
-        toast.error('Failed to switch network');
-      }
-    }
-  };
-
-  // Contract interaction methods
+  // Land management methods
   const createLandLayout = async (landCode: string, layoutUrl: string) => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
     try {
-      const tx = await landTokenContract.createLandLayout(landCode, layoutUrl);
-      await tx.wait();
-      toast.success('Land layout created successfully!');
-    } catch (error: any) {
-      console.error('Error creating land layout:', error);
-      toast.error('Failed to create land layout: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post('/lands/create', { landCode, layoutUrl });
+      toast.success('Land layout created successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const registerLand = async (landId: number, landOwner: string) => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
     try {
-      const tx = await landTokenContract.landRegistration(landId, landOwner);
-      await tx.wait();
-      toast.success('Land registered successfully!');
-    } catch (error: any) {
-      console.error('Error registering land:', error);
-      toast.error('Failed to register land: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post('/lands/register', { landId, landOwner });
+      toast.success('Land registered successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const mintTitleDeed = async (landId: number, titleDeedUrl: string) => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
     try {
-      const tx = await landTokenContract.mintTitleDeed(landId, titleDeedUrl);
-      await tx.wait();
-      toast.success('Title deed minted successfully!');
-    } catch (error: any) {
-      console.error('Error minting title deed:', error);
-      toast.error('Failed to mint title deed: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post('/lands/mint-deed', { landId, titleDeedUrl });
+      toast.success('Title deed minted successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const listLand = async (landId: number, price: string) => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
     try {
-      const priceInWei = ethers.parseEther(price);
-      const tx = await landTokenContract.listLand(landId, priceInWei);
-      await tx.wait();
-      toast.success('Land listed for sale successfully!');
-    } catch (error: any) {
-      console.error('Error listing land:', error);
-      toast.error('Failed to list land: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post('/lands/list', { landId, price });
+      toast.success('Land listed for sale successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const buyLand = async (landId: number, price: string) => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
     try {
-      const priceInWei = ethers.parseEther(price);
-      const tx = await landTokenContract.buyLand(landId, { value: priceInWei });
-      await tx.wait();
-      toast.success('Land purchased successfully!');
-    } catch (error: any) {
-      console.error('Error buying land:', error);
-      toast.error('Failed to buy land: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post('/lands/buy', { landId, price });
+      toast.success('Land purchased successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const unlistLand = async (landId: number) => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
     try {
-      const tx = await landTokenContract.unlistLand(landId);
-      await tx.wait();
-      toast.success('Land unlisted successfully!');
-    } catch (error: any) {
-      console.error('Error unlisting land:', error);
-      toast.error('Failed to unlist land: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post('/lands/unlist', { landId });
+      toast.success('Land unlisted successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getLandLayout = async (landId: number): Promise<LandLayout | null> => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
+  const getLandLayout = async (landId: number) => {
     try {
-      const result = await landTokenContract.getLandLayout(landId);
-      return {
-        landCode: result.landCode,
-        layoutUrl: result.layoutUrl,
-        landOwner: result.landOwner,
-        titleDeedUrl: result.titleDeedUrl,
-        landStatus: result.landStatus,
-        landValue: ethers.formatEther(result.landValue),
-        inDispute: result.inDispute,
-      };
-    } catch (error: any) {
-      console.error('Error getting land layout:', error);
+      setIsLoading(true);
+      const response = await api.get(`/lands/${landId}`);
+      return response.data;
+    } catch (error) {
+      handleError(error);
       return null;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getListedLands = async (): Promise<LandLayout[]> => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
+  // Admin methods
+  const addSteward = async (address: string) => {
     try {
-      const results = await landTokenContract.getListedLands();
-      return results.map((result: any) => ({
-        landCode: result.landCode,
-        layoutUrl: result.layoutUrl,
-        landOwner: result.landOwner,
-        titleDeedUrl: result.titleDeedUrl,
-        landStatus: result.landStatus,
-        landValue: ethers.formatEther(result.landValue),
-        inDispute: result.inDispute,
-      }));
-    } catch (error: any) {
-      console.error('Error getting listed lands:', error);
-      return [];
+      setIsLoading(true);
+      await api.post('/admin/stewards', { address });
+      toast.success('Steward added successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getOwnerDeeds = async (owner: string): Promise<number[]> => {
-    if (!landTokenContract) throw new Error('Contract not initialized');
-    
+  const removeSteward = async (address: string) => {
     try {
-      const results = await landTokenContract.getOwnerDeeds(owner);
-      return results.map((id: any) => Number(id));
-    } catch (error: any) {
-      console.error('Error getting owner deeds:', error);
-      return [];
+      setIsLoading(true);
+      await api.delete(`/admin/stewards/${address}`);
+      toast.success('Steward removed successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const flagConflict = async (tokenId: number, evidenceHash: string) => {
-    if (!landRegistryContract) throw new Error('Registry contract not initialized');
-    
+  // Dispute resolution
+  const flagConflict = async (landId: number, evidenceHash: string) => {
     try {
-      const tx = await landRegistryContract.flagConflict(tokenId, evidenceHash);
-      await tx.wait();
-      toast.success('Conflict flagged successfully!');
-    } catch (error: any) {
-      console.error('Error flagging conflict:', error);
-      toast.error('Failed to flag conflict: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post('/lands/conflicts', { landId, evidenceHash });
+      toast.success('Conflict flagged successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const resolveConflict = async (tokenId: number, rightfulOwner: string, signatures: string[]) => {
-    if (!landRegistryContract) throw new Error('Registry contract not initialized');
-    
+  const resolveConflict = async (landId: number, rightfulOwner: string) => {
     try {
-      const tx = await landRegistryContract.resolveConflict(tokenId, rightfulOwner, signatures);
-      await tx.wait();
-      toast.success('Conflict resolved successfully!');
-    } catch (error: any) {
-      console.error('Error resolving conflict:', error);
-      toast.error('Failed to resolve conflict: ' + error.message);
-      throw error;
+      setIsLoading(true);
+      await api.post(`/lands/conflicts/${landId}/resolve`, { rightfulOwner });
+      toast.success('Conflict resolved successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const formatEther = (value: string): string => {
-    return ethers.formatEther(value);
-  };
-
-  const parseEther = (value: string): string => {
-    return ethers.parseEther(value).toString();
-  };
-
-  // Listen for account changes
-  useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length === 0) {
-          disconnectWallet();
-        } else {
-          setAccount(accounts[0]);
-        }
-      });
-
-      window.ethereum.on('chainChanged', (chainId: string) => {
-        setChainId(parseInt(chainId, 16));
-      });
-    }
-
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeAllListeners('accountsChanged');
-        window.ethereum.removeAllListeners('chainChanged');
-      }
-    };
-  }, []);
-
-  const value: Web3ContextType = {
-    provider,
-    signer,
+  const value = {
     account,
-    chainId,
     isConnected,
     isLoading,
-    landTokenContract,
-    landRegistryContract,
     connectWallet,
     disconnectWallet,
-    switchNetwork,
     createLandLayout,
     registerLand,
     mintTitleDeed,
@@ -400,20 +253,15 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     buyLand,
     unlistLand,
     getLandLayout,
-    getListedLands,
-    getOwnerDeeds,
+    addSteward,
+    removeSteward,
     flagConflict,
-    resolveConflict,
-    formatEther,
-    parseEther,
+    resolveConflict
   };
 
-  return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;
+  return (
+    <Web3Context.Provider value={value}>
+      {children}
+    </Web3Context.Provider>
+  );
 };
-
-// Extend Window interface for TypeScript
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
