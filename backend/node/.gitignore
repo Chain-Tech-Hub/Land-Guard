@@ -1,2 +1,5 @@
-./landguard2025
-landguard2025
+./landguard2025.json
+landguard2025.json
+backend/node_modules
+backend/vendor
+backend/TCPDF-main
